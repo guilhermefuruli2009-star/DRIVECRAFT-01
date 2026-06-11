@@ -12,6 +12,7 @@
 import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import Scene   from './components/Scene'
 import RaceGame from './race-game/RaceGame'
+import DiagnosticMode from './components/DiagnosticMode'
 
 // ══════════════════════════════════════════════════════
 //  MODELOS PRÉ-CADASTRADOS
@@ -700,6 +701,7 @@ export default function App() {
   const [loaded, setLoaded]       = useState(false)
   const [camTarget, setCamTarget] = useState(null)
   const [raceMode, setRaceMode]   = useState(false)
+  const [diagMode, setDiagMode]   = useState(false)
 
   // ── Modelos de carro ─────────────────────────────────
   const [models, setModels]       = useState(BUILTIN_MODELS)
@@ -803,6 +805,7 @@ export default function App() {
         <div className="top-menu">
           <div className="top-menu-item" onClick={handleReset}>↩️ Editar</div>
           <div className="top-menu-item" onClick={()=>set({showWireframe:!s.showWireframe})}>🕸️ Wireframe</div>
+          <div className="top-menu-item" onClick={()=>setDiagMode(true)} style={{color:'#00e5ff',borderColor:'rgba(0,229,255,0.4)'}}>🔬 Diagnóstico</div>
           <div className="top-menu-item" onClick={()=>exportJSON(s,notify)}>📄 Exportar</div>
           <div className="top-menu-item" onClick={()=>notify('🔗 Link copiado!')}>🔗 Compartilhar</div>
         </div>
@@ -978,6 +981,14 @@ export default function App() {
           onClick={()=>setRaceMode(true)}>🏁 Pista</button>
         <button className="btn-cart" onClick={()=>setPanel('cart')}>🛒 Ver Carrinho</button>
       </div>
+
+      {/* Diagnostic Mode */}
+      <DiagnosticMode
+        active={diagMode}
+        onClose={() => setDiagMode(false)}
+        carName={activeModel.name}
+        bodyColor={s.bodyColor}
+      />
 
       {/* Race Mode */}
       {raceMode && (
