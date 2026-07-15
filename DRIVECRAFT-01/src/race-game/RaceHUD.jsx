@@ -1,7 +1,7 @@
 /**
  * RaceHUD.jsx — v4 com novos controles
  */
-import MiniMap from './MiniMap'
+import MiniMap3D from './MiniMap3D'
 
 const CAMERA_LABELS = {
   follow:    '📷 3ª Pessoa',
@@ -86,7 +86,7 @@ export default function RaceHUD({
       <div className="hud-lap-bar"><div className="hlb-fill" style={{width:`${lapPercent}%`}}/></div>
 
       {/* Mini-mapa */}
-      {showMap && <div className="hud-minimap"><MiniMap carPos={carPos}/></div>}
+      {showMap && <div className="hud-minimap"><MiniMap3D carPos={carPos} size={160}/></div>}
 
       {/* Botões HUD */}
       <div className="hud-controls">

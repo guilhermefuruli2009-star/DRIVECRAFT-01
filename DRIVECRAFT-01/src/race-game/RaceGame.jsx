@@ -1,11 +1,11 @@
 /**
- * RaceGame.jsx — v4 com sistema de áudio completo
+ * RaceGame.jsx — v5 com sistema de áudio completo + importação de arquivos
  */
 import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import RaceScene   from './RaceScene'
 import RaceHUD     from './RaceHUD'
 import RaceIntro   from './RaceIntro'
-import { useGameAudio, MusicPlayer } from './useGameAudio'
+import { useGameAudio, MusicPlayer, AudioImportPanel } from './useGameAudio'
 import './RaceGame.css'
 
 export const GAME_STATES = {
@@ -26,7 +26,8 @@ export default function RaceGame({ carConfig, onBack }) {
   const [cameraAngle, setCameraAngle] = useState('follow')
   const [showMap, setShowMap]         = useState(true)
   const [showMusic, setShowMusic]     = useState(false)
-  const [carPos, setCarPos]           = useState({ x: 0, z: 30, angle: 0, progress: 0 })
+  const [showAudioImport, setShowAudioImport] = useState(false)
+  const [carPos, setCarPos]           = useState({ x: 0, y: 0, z: 0, angle: 0, progress: 0 })
 
   const countRef = useRef(null)
   const totalRef = useRef(null)
@@ -35,6 +36,7 @@ export default function RaceGame({ carConfig, onBack }) {
   const {
     startEngine, stopEngine, updateEngine,
     playLap, playFinish, playCount, playGo,
+    importAudio, removeAudio, loadedKeys,
   } = useGameAudio()
 
   // Inicia motor quando corrida começa
@@ -114,7 +116,7 @@ export default function RaceGame({ carConfig, onBack }) {
     setSpeed(0)
     setBestLap(null)
     setTotalTime(0)
-    setCarPos({ x: 0, z: 30, angle: 0, progress: 0 })
+    setCarPos({ x: 0, y: 0, z: 0, angle: 0, progress: 0 })
   }, [stopEngine])
 
   const cycleCamera = useCallback(() => {
@@ -136,6 +138,7 @@ export default function RaceGame({ carConfig, onBack }) {
       if (e.key === 'c' || e.key === 'C') cycleCamera()
       if (e.key === 'm' || e.key === 'M') setShowMap(m => !m)
       if (e.key === 'n' || e.key === 'N') setShowMusic(m => !m)
+      if (e.key === 'i' || e.key === 'I') setShowAudioImport(m => !m)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -156,6 +159,10 @@ export default function RaceGame({ carConfig, onBack }) {
             onLapComplete={completeLap}
             onCycleCamera={cycleCamera}
             onUpdateAudio={updateEngine}
+            onStartRace={startCountdown}
+            onRestart={restart}
+            onBack={onBack}
+            onTogglePause={togglePause}
           />
         </Suspense>
       </div>
@@ -180,6 +187,8 @@ export default function RaceGame({ carConfig, onBack }) {
           onToggleMap={() => setShowMap(m => !m)}
           onToggleMusic={() => setShowMusic(m => !m)}
           showMusic={showMusic}
+          onToggleAudioImport={() => setShowAudioImport(m => !m)}
+          showAudioImport={showAudioImport}
           onRestart={restart} onBack={onBack}
         />
       )}
@@ -187,6 +196,16 @@ export default function RaceGame({ carConfig, onBack }) {
       {/* Player de música — visível durante corrida e pausa */}
       {(isRacing || gameState === GAME_STATES.PAUSED) && (
         <MusicPlayer visible={showMusic} />
+      )}
+
+      {/* Painel de importação de áudio (motor, freio, turbo, lap, finish, countdown, go) */}
+      {(isRacing || gameState === GAME_STATES.PAUSED) && (
+        <AudioImportPanel
+          visible={showAudioImport}
+          importAudio={importAudio}
+          removeAudio={removeAudio}
+          loadedKeys={loadedKeys}
+        />
       )}
 
       {gameState === GAME_STATES.FINISHED && (
