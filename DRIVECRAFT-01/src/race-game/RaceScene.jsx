@@ -643,11 +643,78 @@ function SceneContent({ carConfig, gameState, cameraAngle, physicsRef, trackRef,
 // ═══════════════════════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+//  PAINEL DE DEBUG — visível DENTRO do headset via WebXR 'dom-overlay'
+//  (não precisa de cabo USB nem chrome://inspect pra ver os erros)
+// ═══════════════════════════════════════════════════════════════════════════════
+function useVRDebugLog() {
+  const [lines, setLines] = useState([])
+  const push = (tag, args) => {
+    const msg = args.map(a => {
+      try { return typeof a === 'string' ? a : JSON.stringify(a) }
+      catch { return String(a) }
+    }).join(' ')
+    setLines(prev => [...prev.slice(-14), `[${tag}] ${msg}`])
+  }
+
+  useEffect(() => {
+    const origError = console.error
+    const origWarn = console.warn
+    console.error = (...args) => { push('ERROR', args); origError(...args) }
+    console.warn  = (...args) => { push('WARN', args);  origWarn(...args) }
+
+    const onErr = (e) => push('JS-ERROR', [e.message, `@${e.filename}:${e.lineno}`])
+    const onRej = (e) => push('PROMISE', [e.reason?.message || e.reason])
+    window.addEventListener('error', onErr)
+    window.addEventListener('unhandledrejection', onRej)
+
+    push('INFO', ['Debug overlay ativo. Aguardando sessão VR...'])
+
+    return () => {
+      console.error = origError
+      console.warn  = origWarn
+      window.removeEventListener('error', onErr)
+      window.removeEventListener('unhandledrejection', onRej)
+    }
+  }, [])
+
+  return { lines, push }
+}
+
+function VRDebugOverlay({ overlayRef, lines, isPresenting }) {
+  return (
+    <div
+      ref={overlayRef}
+      style={{
+        position: 'fixed', top: 0, left: 0, zIndex: 9999,
+        width: 420, maxWidth: '90vw', margin: 16,
+        background: 'rgba(0,0,0,.82)', color: '#7CFC9A',
+        fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5,
+        padding: '10px 12px', borderRadius: 8,
+        border: '1px solid rgba(0,255,120,.4)',
+        pointerEvents: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+      }}
+    >
+      <div style={{ color: '#8fe0ff', fontWeight: 700, marginBottom: 4 }}>
+        VR DEBUG — isPresenting: {String(isPresenting)}
+      </div>
+      {lines.map((l, i) => (
+        <div key={i} style={{ color: l.startsWith('[ERROR') || l.startsWith('[JS-ERROR') || l.startsWith('[PROMISE') ? '#ff6b6b' : l.startsWith('[WARN') ? '#ffd166' : '#7CFC9A' }}>
+          {l}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function RaceScene({
   carConfig, gameState, cameraAngle,
   onSpeedChange, onCarPosChange, onLapComplete,
   onCycleCamera, onStartRace, onRestart, onBack, onTogglePause,
 }) {
+  const overlayRef = useRef(null)
+  const { lines, push } = useVRDebugLog()
+  const [isPresenting, setIsPresenting] = useState(false)
   const physicsRef = useRef(new CarPhysics({
     startX: START_X, startZ: START_Z,
     startRadius: START_RADIUS, lapMinDistance: LAP_MIN_DISTANCE,
@@ -696,6 +763,10 @@ export default function RaceScene({
         camera={{ position: [0, 9, 42], fov: 56, near: .1, far: 3000 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
         style={{ width: '100%', height: '100%' }}
+        onCreated={({ gl }) => {
+          gl.xr.addEventListener('sessionstart', () => { setIsPresenting(true); push('INFO', ['sessionstart disparado']) })
+          gl.xr.addEventListener('sessionend',   () => { setIsPresenting(false); push('INFO', ['sessionend disparado']) })
+        }}
       >
         <XR referenceSpace="local-floor">
           <SceneContent
@@ -717,11 +788,21 @@ export default function RaceScene({
         </XR>
       </Canvas>
 
+      {/* Overlay de debug — some sozinho, é só remover este bloco depois de resolver */}
+      <VRDebugOverlay overlayRef={overlayRef} lines={lines} isPresenting={isPresenting} />
+
       {/* Entrar em VR — funciona no navegador do Meta Quest (Quest Browser).
           'hand-tracking' como optional feature liga o reconhecimento de mãos
-          automaticamente quando o usuário larga os controles físicos. */}
+          automaticamente quando o usuário larga os controles físicos.
+          'dom-overlay' é o que deixa o painel verde de debug visível DENTRO
+          do headset, projetado no espaço da sessão VR. */}
       <VRButton
-        sessionInit={{ optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] }}
+        sessionInit={{
+          optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers', 'dom-overlay'],
+          domOverlay: overlayRef.current ? { root: overlayRef.current } : undefined,
+        }}
+        onClick={() => push('INFO', ['Botão Enter VR clicado'])}
+        onError={(err) => push('VR-ERROR', [err?.message || String(err)])}
         style={{
           position: 'absolute', bottom: 16, right: 16, zIndex: 30,
           padding: '10px 20px', borderRadius: 8, fontWeight: 700, fontSize: 13,
